@@ -1,68 +1,97 @@
-# Include the variables file
-terraform {
-  required_version = ">= 0.12"
+# Configure the Google Cloud provider
+
+provider "google" {
+
+  project     = "testing-project-419916"
+
+  region      = "us-central1"  # Choose your desired region
+
+  credentials = file("/home/ushaikh8446/testing-project-419916-91c5c149fb44.json")
+
 }
 
-# Define a VPC network
-resource "google_compute_network" "my_network" {
-  name = var.vpc_name
+# Define a virtual network
+
+resource "google_compute_network" "vpc_network" {
+
+  name = "terraform-vpc"
+
 }
 
-# Define a public subnet within the VPC
-resource "google_compute_subnetwork" "public_subnet" {
-  name          = var.public_subnet
-  region        = var.cluster_region
-  network       = google_compute_network.my_network.name
-  ip_cidr_range = var.public_subnet_cidr
+# Define a subnet
+
+resource "google_compute_subnetwork" "subnetwork" {
+
+  name          = "terraform-subnet"
+
+  ip_cidr_range = "10.0.0.0/16"
+
+  network       = google_compute_network.vpc_network.id
+
+  region        = "us-central1"  # Same region as the network
+
 }
 
-# Define a private subnet within the VPC
-resource "google_compute_subnetwork" "private_subnet" {
-  name          = var.private_subnet
-  region        = var.cluster_region
-  network       = google_compute_network.my_network.name
-  ip_cidr_range = var.private_subnet_cidr
-}
+# Define a firewall rule to allow SSH
 
-# Define a firewall rule to allow incoming HTTP, HTTPS, and SSH traffic
-resource "google_compute_firewall" "allow_traffic" {
-  name    = "allow-traffic"
-  network = google_compute_network.my_network.name
+resource "google_compute_firewall" "firewall_ssh" {
+
+  name    = "allow-ssh"
+
+  network = google_compute_network.vpc_network.name
 
   allow {
+
     protocol = "tcp"
-    ports    = var.firewall_allowed_ports
+
+    ports    = ["22"]
+
   }
 
-  source_ranges = var.firewall_source_ranges
+  source_ranges = ["0.0.0.0/0"]
+
 }
 
-# Define a Dataproc cluster
-resource "google_dataproc_cluster" "rcb-ipl-2024-dataproc" {
-  name   = var.cluster_name
-  region = var.cluster_region
+# Define a Compute Engine instance (VM)
 
-  cluster_config {
-    master_config {
-      num_instances = 1
-      machine_type  = var.master_machine_type
-      disk_config {
-        boot_disk_type    = "pd-ssd"
-        boot_disk_size_gb = var.boot_disk_size_gb
-      }
+resource "google_compute_instance" "vm_instance" {
+
+  name         = "terraform-instance"
+
+  machine_type = "e2-medium"  # Choose the machine type
+
+  zone         = "us-central1-a"  # Choose the zone
+
+  boot_disk {
+
+    initialize_params {
+
+      image = "debian-cloud/debian-11"  # Choose your desired image
+
     }
 
-    worker_config {
-      num_instances    = var.num_workers
-      machine_type     = var.worker_machine_type
-      disk_config {
-        boot_disk_size_gb = var.boot_disk_size_gb
-      }
-    }
-
-    preemptible_worker_config {
-      num_instances = 0
-    }
   }
-}
 
+  network_interface {
+
+    network    = google_compute_network.vpc_network.id
+
+    subnetwork = google_compute_subnetwork.subnetwork.id
+
+    access_config {
+
+      # Ephemeral IP
+
+    }
+
+  }
+
+  metadata_startup_script = <<-EOF
+
+    #!/bin/bash
+
+    echo "Hello, World!" > /var/www/html/index.html
+
+    EOF
+
+}
