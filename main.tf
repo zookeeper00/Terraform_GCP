@@ -6,7 +6,7 @@ provider "google" {
 
   region      = "us-central1"  # Choose your desired region
 
-  credentials = file("/home/ushaikh8446/testing-project-419916-91c5c149fb44.json")
+  credentials = file("/home/ushaikh8446/testing-project-419916-a7392315fcde.json")
 
 }
 
